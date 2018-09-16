@@ -1,8 +1,6 @@
 import boto3
 region = 'us-east-1'
 
-queue_url = 'https://sqs.us-east-1.amazonaws.com/812225150599/arcade-sqs-queue'
-
 sqs = boto3.resource('sqs', region_name=region)
 
 # Lambda execution starts here
