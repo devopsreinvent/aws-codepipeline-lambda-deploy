@@ -1,23 +1,246 @@
+---
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: 'AWS::Serverless-2016-10-31'
-Description: CD Demo Lambda
-Resources:
-  CDDemoLambda:
-    Type: 'AWS::Serverless::Function'
+Description: Cloudformation Template for creating an SNS Topic and and SQS queue with an SQS Subscription to the SNS topic
+Metadata: 
+  templateVersion: 0.0.7
+Parameters:
+    BucketName:
+        Description: 'AWS S3 bucket name for aws'
+        Type: String
+        Default: 'BUCKET-NAME'
+    AccessControl:
+        Description: 'AWS S3 bucket for aws'
+        Type: String
+        Default: 'BucketOwnerFullControl'
+    BucketEncryption:
+        Type: String
+    SuffixKey:
+        Type: String
+    QueueName:
+        Description: 'AWS SQS Queue Name'
+        Type: String
+        Default: 'aws-cfn-sqs-queue'
+    MessageRetentionPeriod:
+        Description: 'AWS SQS Message retention period'
+        Type: String
+        Default: 1209600
+    SubscriptionProtocol:
+        Description: 'SQS Subscribtion Protocol'    
+        Type: String
+    VisibilityTimeout:
+        Description: 'AWS Message Checkout Time'
+        Type: String
+        Default: 300
+    TopicName:
+        Description: 'SNS topic name for S3 subscription'
+        Type: String
+        Default: 'aws-cfn-sns-topic'
+    S3Event:
+        Description: 'SNS topic event to monitor for S3 subscription'
+        Type: String
+        Default: 's3:ObjectCreated:*'
+    LambdaConsumerName:
+        Description: 'Lambda Consumer Name'
+        Type: String
+    LambdaCodeBucketName:
+        Description: 'Lambda Source Code Bucket Name'
+        Type: String
+    LambdaConsumerCodeKey:
+        Description: 'Lambda Consumer Source Code Key Name'
+        Type: String
+Resources: 
+  MySNSTopic:
+    Type: AWS::SNS::Topic
     Properties:
-      Handler: lambda_function.lambda_handler
-      Runtime: python3.6
-      CodeUri: ./LambdaCode
-      Description: 'Lambda function for CD Demo'
+        TopicName:
+            Ref: TopicName
+  SNSTopicPolicy:
+    Type: 'AWS::SNS::TopicPolicy'
+    Properties:
+      PolicyDocument:
+        Id: MyTopicPolicy
+        Version: '2012-10-17'
+        Statement:
+          - Sid: __default_statement_ID
+            Effect: Allow
+            Principal:
+              AWS: '*'
+            Action:
+              - SNS:ListSubscriptionsByTopic
+              - SNS:Subscribe
+              - SNS:DeleteTopic
+              - SNS:GetTopicAttributes
+              - SNS:Publish
+              - SNS:RemovePermission
+              - SNS:AddPermission
+              - SNS:Receive
+              - SNS:SetTopicAttributes
+            Resource:
+              Ref: MySNSTopic
+            Condition:
+              StringEquals:
+                AWS:SourceOwner: ''
+          - Sid: example-statement-ID
+            Effect: Allow
+            Principal:
+              Service: s3.amazonaws.com
+            Action: SNS:Publish
+            Resource: 
+              Ref: MySNSTopic
+            Condition:
+              ArnLike:
+                aws:SourceArn: arn:aws:s3:*:*:*
+      Topics: 
+        - Ref: MySNSTopic
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: 
+        Ref: AccessControl
+      BucketName: 
+        Ref: BucketName
+      BucketEncryption: 
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm:
+                Ref: BucketEncryption
+      NotificationConfiguration:
+        TopicConfigurations:
+          - Topic:
+              Ref: MySNSTopic
+            Event: 
+              Ref: S3Event
+            Filter:
+              S3Key:
+                Rules:
+                  - Name: suffix
+                    Value:
+                      Ref: SuffixKey
+  MyQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName:
+        Ref: QueueName
+      MessageRetentionPeriod:
+        Ref: MessageRetentionPeriod
+      VisibilityTimeout: 
+        Ref: VisibilityTimeout
+      RedrivePolicy: 
+        deadLetterTargetArn: !Sub ${DeadLetterQueue.Arn}
+        maxReceiveCount: 10
+  DeadLetterQueue: 
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: 'DeadLetterQueue'
+      MessageRetentionPeriod:
+        Ref: MessageRetentionPeriod
+  SNSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Endpoint: !GetAtt
+        - MyQueue
+        - Arn
+      Protocol: 
+        Ref: SubscriptionProtocol
+      TopicArn:
+        Ref: MySNSTopic
+  MyQueuePolicy:
+    Type: AWS::SQS::QueuePolicy
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Id: MyQueuePolicy
+        Statement:
+          - Sid: Allow-SendMessage-To-Queue-From-SNS-Topic
+            Effect: Allow
+            Principal: 
+              AWS: '*'
+            Action: 
+              - sqs:SendMessage
+            Resource: '*'
+            Condition:
+              ArnEquals:
+                aws:SourceArn:
+                  Ref: MySNSTopic
+      Queues:
+        - Ref: MyQueue
+  ConsumerLambdaRole:
+    Type: AWS::IAM::Role
+    Properties: 
+      AssumeRolePolicyDocument: 
+        Version: '2012-10-17'
+        Statement: 
+        - Effect: Allow
+          Principal: 
+            Service: lambda.amazonaws.com
+          Action: 
+          - sts:AssumeRole
+      Path: '/'
+      Policies: 
+      - PolicyName: logs
+        PolicyDocument: 
+          Statement: 
+          - Effect: Allow
+            Action: 
+            - logs:CreateLogGroup
+            - logs:CreateLogStream
+            - logs:PutLogEvents
+            Resource: arn:aws:logs:*:*:*
+      - PolicyName: sqs
+        PolicyDocument: 
+          Statement: 
+          - Effect: Allow
+            Action: 
+            - sqs:*
+            Resource: !Sub ${MyQueue.Arn}
+  ConsumerLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri:
+        Bucket: !Ref LambdaCodeBucketName
+        Key: !Ref LambdaConsumerCodeKey
+      Handler: sqs_processor.handler
       MemorySize: 128
-      Timeout: 30
-      Role: 'arn:aws:iam::093833860903:role/MyLambdaRole'
-      Events:
-        getAZsAPI:
-          Type: Api
-          Properties:
-            Path: /getazs
-            Method: get
+      Role: !Sub ${ConsumerLambdaRole.Arn}
+      Runtime: python3.6
+      Timeout: 60
       Environment:
         Variables:
-          REGION: ap-southeast-2
+          TASK_QUEUE_URL: !Ref MyQueue
+      Events:
+        Timer:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 minute)
+Outputs:
+  TopicARN:
+    Description: 'ARN of newly created SNS Topic'
+    Value:
+      Ref: MySNSTopic
+  TopicName:
+    Description: 'Name of newly created SNS Topic'
+    Value:
+      Fn::GetAtt:
+      - MySNSTopic
+      - TopicName
+  QueueURL:
+    Description: 'URL of newly created SQS Queue'
+    Value:
+      Ref: MyQueue
+  QueueARN:
+    Description: 'ARN of newly created SQS Queue'
+    Value:
+      Fn::GetAtt:
+        - MyQueue
+        - Arn
+  QueueName:
+    Description: 'Name of newly created SQS Queue'
+    Value:
+      Fn::GetAtt:
+        - MyQueue
+        - QueueName
+  S3Bucket:
+    Description: 'Name of newly created S3 bucket'
+    Value:
+        Ref: S3Bucket
