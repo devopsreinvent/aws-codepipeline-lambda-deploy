@@ -46,7 +46,7 @@ Parameters:
     LambdaConsumerName:
         Description: 'Lambda Consumer Name'
         Type: String
-        Default: 'arcade-serverless-lambdaconsumer'
+        Default: 'arcade-serverless-lambdaconsumer-v1'
     LambdaCodeBucketName:
         Description: 'arcade-serverless-lambdaconsumer-code'
         Type: String
