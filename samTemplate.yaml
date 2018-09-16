@@ -197,10 +197,9 @@ Resources:
   ConsumerLambda:
     Type: AWS::Serverless::Function
     Properties:
-      CodeUri:
-        Bucket: !Ref LambdaCodeBucketName
-        Key: !Ref LambdaConsumerCodeKey
+      CodeUri: ./LambdaCode
       Handler: sqs_processor.handler
+      Description: 'Lambda function for CD Demo'
       MemorySize: 128
       Role: !Sub ${ConsumerLambdaRole.Arn}
       Runtime: python3.6
