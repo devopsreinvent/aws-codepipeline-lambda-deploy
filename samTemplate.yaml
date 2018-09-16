@@ -52,8 +52,9 @@ Parameters:
         Type: String
         Default: 'arcade-serverless-lambdaconsumer'
     LambdaConsumerCodeKey:
-        Description: 'sqs_processor.zip'
+        Description: 'LambdaConsumerCodeKey'
         Type: String
+        Default: 'sqs_processor.zip'
 Resources: 
   MySNSTopic:
     Type: AWS::SNS::Topic
