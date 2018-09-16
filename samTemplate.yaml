@@ -8,19 +8,21 @@ Parameters:
     BucketName:
         Description: 'AWS S3 bucket name for aws'
         Type: String
-        Default: 'BUCKET-NAME'
+        Default: 'arcade-serverless-bucket'
     AccessControl:
         Description: 'AWS S3 bucket for aws'
         Type: String
         Default: 'BucketOwnerFullControl'
     BucketEncryption:
         Type: String
+        Default: 'AES256'
     SuffixKey:
         Type: String
+        Default: ''
     QueueName:
         Description: 'AWS SQS Queue Name'
         Type: String
-        Default: 'aws-cfn-sqs-queue'
+        Default: 'arcade-serverless-sqs-queue'
     MessageRetentionPeriod:
         Description: 'AWS SQS Message retention period'
         Type: String
@@ -35,7 +37,7 @@ Parameters:
     TopicName:
         Description: 'SNS topic name for S3 subscription'
         Type: String
-        Default: 'aws-cfn-sns-topic'
+        Default: 'arcade-serverless-sns-topic'
     S3Event:
         Description: 'SNS topic event to monitor for S3 subscription'
         Type: String
@@ -43,11 +45,13 @@ Parameters:
     LambdaConsumerName:
         Description: 'Lambda Consumer Name'
         Type: String
+        Default: 'arcade-serverless-lambdaconsumer'
     LambdaCodeBucketName:
-        Description: 'Lambda Source Code Bucket Name'
+        Description: 'arcade-serverless-lambdaconsumer-code'
         Type: String
+        Default: 'arcade-serverless-lambdaconsumer'
     LambdaConsumerCodeKey:
-        Description: 'Lambda Consumer Source Code Key Name'
+        Description: 'sqs_processor.zip'
         Type: String
 Resources: 
   MySNSTopic:
