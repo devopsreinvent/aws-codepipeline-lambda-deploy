@@ -30,6 +30,7 @@ Parameters:
     SubscriptionProtocol:
         Description: 'SQS Subscribtion Protocol'    
         Type: String
+        Default: sqs
     VisibilityTimeout:
         Description: 'AWS Message Checkout Time'
         Type: String
