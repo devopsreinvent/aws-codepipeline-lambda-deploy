@@ -1,7 +1,15 @@
 import boto3
-import json
+region = 'us-east-1'
 
-ec2 = boto3.client('ec2')
-def lambda_handler(event, context):
-    response = ec2.describe_availability_zones()
-    return {"statusCode": 200, "body": json.dumps(response)}
+queue_url = 'https://sqs.us-east-1.amazonaws.com/812225150599/arcade-sqs-queue'
+
+sqs = boto3.resource('sqs', region_name=region)
+
+# Lambda execution starts here
+def handler(event, context):
+
+  queue = sqs.get_queue_by_name(QueueName='arcade-sqs-queue')
+  messages = queue.receive_messages()
+  for message in messages:
+    print('Body: {0}'.format(message.body))
+    message.delete()
